@@ -18,9 +18,9 @@ from email.mime.base import MIMEBase
 from mimetypes import guess_type as guess_mime_type
 
 # Request all access (permission to read/send/receive emails, manage the inbox, and more)
-# SCOPES = ['https://mail.google.com/']
-# our_email = 'zihanren.ds@gmail.com'
-# PATH_credentails = '/home/topaz/repo/assistant_job/credentials.json'
+SCOPES = ['https://mail.google.com/']
+our_email = 'zihanren.ds@gmail.com'
+PATH_credentails = '/journel/s0/zur74/job_assistant/credentials.json'
 # %%
 def gmail_authenticate():
     creds = None
@@ -336,6 +336,13 @@ delete_emails(service, promotion_emails)
 # %% write a function to query all emails
 # query include sender, subject, summary of body
 
+# query part of emails
+def list_emails(service, label_ids='INBOX'):
+    """List all emails with the given label"""
+    results = service.users().messages().list(userId='me', labelIds=[label_ids]).execute()
+    messages = results.get('messages', [])
+    return [msg['id'] for msg in messages]
+
 def get_emails_details(service, label_ids='INBOX'):
     """Retrieve a list of emails with their IDs, subjects, and sender addresses."""
     emails_details = {}
@@ -371,7 +378,35 @@ def get_emails_details(service, label_ids='INBOX'):
     
     return emails_details
 
-email_details = get_emails_details(service)
+
+def fetch_email_details(service, email_ids):
+    """Fetch and return details for a list of email IDs, including subject, sender, and date."""
+    emails_info = {}
+
+    for email_id in email_ids:
+        message = service.users().messages().get(
+            userId='me', id=email_id, format='metadata', metadataHeaders=['From', 'Subject', 'Date']
+        ).execute()
+
+        # Extracting relevant headers
+        headers = message.get('payload', {}).get('headers', [])
+        from_email = next((header['value'] for header in headers if header['name'] == 'From'), 'Unknown Sender')
+        subject = next((header['value'] for header in headers if header['name'] == 'Subject'), 'No Subject')
+        date = next((header['value'] for header in headers if header['name'] == 'Date'), 'No Date')
+
+        # Store the details in the dictionary using email ID as key
+        emails_info[email_id] = {
+            'from': from_email,
+            'subject': subject,
+            'date': date
+        }
+
+    return emails_info
+
+
+
+email_details = list_emails(service)
+email_info = fetch_email_details(service, email_details)
 
 
 # %%
@@ -411,7 +446,6 @@ def filter_emails_by_sender(service, label_ids='INBOX', target_str=[]):
 
 
 
-
 def delete_emails(service, email_ids):
     """Delete emails by IDs."""
     for email_id in email_ids:
@@ -426,6 +460,10 @@ delete_emails_id = list(emails_delete.keys())
 delete_emails(service, delete_emails_id)
 
 # %% get sender info
+
+
+
+
 def get_unique_senders(service, label_ids='INBOX'):
     """Retrieve unique sender information from emails in the specified label."""
     unique_senders = set()
