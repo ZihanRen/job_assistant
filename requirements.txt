@@ -6,3 +6,5 @@ langchain
 pandas
 requests
 ipykernel
+python-dotenv
+beautifulsoup4
