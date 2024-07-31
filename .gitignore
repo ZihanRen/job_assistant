@@ -12,5 +12,5 @@
 *.tif
 *.pickle
 *.pkl
-.json
-.env
+*.json
+*.env
