@@ -17,9 +17,17 @@ from mimetypes import guess_type as guess_mime_type
 import os
 import base64
 from bs4 import BeautifulSoup
-
-
 from dotenv import load_dotenv
+import json
+from googleapiclient.errors import HttpError
+import os
+from datetime import datetime
+current_date = datetime.now().strftime('%Y%m%d')
+folder_name = os.path.join('../db/raw',current_date)
+# Create the folder if it does not exist
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
+
 
 dotenv_path = os.path.join('..', '.env')
 load_dotenv(dotenv_path)
@@ -51,12 +59,68 @@ def gmail_authenticate():
 # get the Gmail API service
 service = gmail_authenticate()
 #%%
-def list_messages(service, user_id='me', label_ids=['INBOX'], max_results=20):
+def list_messages_all(service, user_id='me', label_names=None):
     try:
-        response = service.users().messages().list(userId=user_id, labelIds=label_ids, maxResults=max_results).execute()
+        label_ids = []
+        if label_names:
+            if isinstance(label_names, str):
+                label_names = [label_names]  # Convert single string to list
+            for name in label_names:
+                label_id = find_label_id(service, name)
+                if label_id:
+                    label_ids.append(label_id)
+        
+        if not label_ids:
+            print("No valid labels found. Fetching all messages.")
+            request = service.users().messages().list(userId=user_id)
+        else:
+            request = service.users().messages().list(userId=user_id, labelIds=label_ids)
+        
+        messages = []
+        while request is not None:
+            response = request.execute()
+            messages.extend(response.get('messages', []))
+            request = service.users().messages().list_next(previous_request=request, previous_response=response)
+        
+        return messages
+    except HttpError as error:
+        print(f'An error occurred: {error}')
+        return None
+
+
+def find_label_id(service, label_name):
+    try:
+        results = service.users().labels().list(userId='me').execute()
+        labels = results.get('labels', [])
+        for label in labels:
+            if label['name'].lower() == label_name.lower():
+                return label['id']
+        print(f"Label '{label_name}' not found.")
+        return None
+    except HttpError as error:
+        print(f'An error occurred: {error}')
+        return None
+
+def list_messages_limited(service, user_id='me', label_names=None, max_results=20):
+    try:
+        label_ids = []
+        if label_names:
+            if isinstance(label_names, str):
+                label_names = [label_names]  # Convert single string to list
+            for name in label_names:
+                label_id = find_label_id(service, name)
+                if label_id:
+                    label_ids.append(label_id)
+        
+        if not label_ids:
+            print("No valid labels found. Fetching messages without label filter.")
+            response = service.users().messages().list(userId=user_id, maxResults=max_results).execute()
+        else:
+            response = service.users().messages().list(userId=user_id, labelIds=label_ids, maxResults=max_results).execute()
+        
         messages = response.get('messages', [])
         return messages
-    except Exception as error:
+    except HttpError as error:
         print(f'An error occurred: {error}')
         return None
 
@@ -73,115 +137,150 @@ def get_mime_type_part(parts, mime_type):
 def decode_body(body_data):
     return base64.urlsafe_b64decode(body_data).decode('utf-8')
 
-def extract_job_details_from_html(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    job_details = {}
-
-    # Extract recipient name
-    header = soup.find('h1', class_='es-m-txt-c')
-    if header:
-        name_text = header.get_text(strip=True)
-        name = name_text.split(',')[-1].strip()
-        job_details['recipient_name'] = name
-
-    # Extract job title and company
-    job_info = soup.find('p', style=lambda value: value and 'font-size:16px' in value)
-    if job_info:
-        strong_tags = job_info.find_all('strong')
-        if len(strong_tags) >= 2:
-            job_details['job_title'] = strong_tags[0].get_text(strip=True)
-            job_details['company'] = strong_tags[1].get_text(strip=True)
-
-    # Extract location
-    location = job_info.find('em') if job_info else None
-    if location:
-        job_details['location'] = location.get_text(strip=True)
-
-    # Extract company description
-    company_desc = soup.find('p', style=lambda value: value and 'font-size:16px' in value and 'color:#000000' in value)
-    if company_desc:
-        job_details['company_description'] = company_desc.get_text(strip=True)
-
-    # Extract job link
-    job_link = soup.find('a', class_='es-button es-button-4')
-    if job_link and 'href' in job_link.attrs:
-        job_details['job_link'] = job_link['href']
-
-    # Extract email preferences
-    preferences = soup.find_all('a', style=lambda value: value and 'font-size:14px' in value and 'color:#000000' in value)
-    if preferences:
-        job_details['email_preferences'] = [pref.get_text(strip=True) for pref in preferences]
-
-    # Extract footer information
-    footer = soup.find('p', style=lambda value: value and 'font-size:13px' in value)
-    if footer:
-        job_details['company_info'] = footer.get_text(strip=True)
-
-    return job_details
-
 def get_message(service, user_id, msg_id):
     try:
         message = service.users().messages().get(userId=user_id, id=msg_id, format='full').execute()
         headers = message['payload']['headers']
         
         # Extracting necessary fields from headers
-        subject = next(header['value'] for header in headers if header['name'] == 'Subject')
-        sender = next(header['value'] for header in headers if header['name'] == 'From')
-        date = next(header['value'] for header in headers if header['name'] == 'Date')
+        subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), '')
+        sender = next((header['value'] for header in headers if header['name'].lower() == 'from'), '')
+        date = next((header['value'] for header in headers if header['name'].lower() == 'date'), '')
+        recipients = next((header['value'] for header in headers if header['name'].lower() == 'to'), '').split(',')
+        cc = next((header['value'] for header in headers if header['name'].lower() == 'cc'), '').split(',')
+        bcc = next((header['value'] for header in headers if header['name'].lower() == 'bcc'), '').split(',')
 
         # Extract the main email body
         parts = message['payload'].get('parts', [])
         body = ""
         if parts:
-            # Try to get text/plain or text/html parts
             text_part = get_mime_type_part(parts, 'text/plain')
             html_part = get_mime_type_part(parts, 'text/html')
             
             if text_part and 'data' in text_part['body']:
                 body = decode_body(text_part['body']['data'])
             elif html_part and 'data' in html_part['body']:
-                html_body = decode_body(html_part['body']['data'])
-                job_details = extract_job_details_from_html(html_body)
-                body = f"Recipient: {job_details.get('recipient_name', '')}\n"
-                body += f"Job Title: {job_details.get('job_title', '')}\n"
-                body += f"Company: {job_details.get('company', '')}\n"
-                body += f"Location: {job_details.get('location', '')}\n"
-                body += f"Company Description: {job_details.get('company_description', '')}\n"
-                body += f"Job Link: {job_details.get('job_link', '')}\n"
-                body += f"Email Preferences: {', '.join(job_details.get('email_preferences', []))}\n"
-                body += f"Company Info: {job_details.get('company_info', '')}"
+                body = decode_body(html_part['body']['data'])
         else:
             if 'data' in message['payload']['body']:
                 body = decode_body(message['payload']['body']['data'])
 
+        # Extract attachments
+        attachments = []
+        for part in parts:
+            if part.get('filename'):
+                attachments.append({
+                    'filename': part['filename'],
+                    'size': int(part['body'].get('size', 0)),
+                    'mime_type': part['mimeType']
+                })
+
         msg_dict = {
-            'id': message['id'],
-            'subject': subject,
-            'sender': sender,
-            'date': date,
-            'body': body,
+            "email_id": message['id'],
+            "metadata": {
+                "subject": subject,
+                "sender": sender,
+                "date": date,
+                "recipients": recipients,
+                "cc": cc,
+                "bcc": bcc
+            },
+            "content": {
+                "body": body,
+                "attachments": attachments
+            },
+            "custom_fields": {
+                "category": None,
+                "tags": None,
+                "labels": message.get('labelIds', [])
+            }
         }
         return msg_dict
     except Exception as error:
         print(f'An error occurred: {error}')
         return None
 
-# Get the Gmail API service
-service = gmail_authenticate()
+def get_all_emails(service, label_names=None):
+    messages = list_messages_all(service, label_names=label_names)
+    email_data = []
+    if messages:
+        total = len(messages)
+        for i, msg in enumerate(messages, 1):
+            try:
+                msg_id = msg['id']
+                message_details = get_message(service, 'me', msg_id)
+                if message_details:
+                    email_data.append(message_details)
+                if i % 100 == 0:
+                    print(f"Processed {i}/{total} emails")
+            except Exception as e:
+                print(f"Error processing message {msg['id']}: {e}")
+    return email_data
+
+def get_limited_emails(service, label_names=None, max_results=20):
+    messages = list_messages_limited(service, label_names=label_names, max_results=max_results)
+    email_data = []
+    if messages:
+        for msg in messages:
+            msg_id = msg['id']
+            message_details = get_message(service, 'me', msg_id)
+            if message_details:
+                email_data.append(message_details)
+    return email_data
+
+
+label_system ={
+    "personal": "CATEGORY_PERSONAL",
+    "social": "CATEGORY_SOCIAL",
+    "promotions": "CATEGORY_PROMOTIONS",
+    "updates": "CATEGORY_UPDATES",
+    "forums": "CATEGORY_FORUMS",
+    "inbox": "INBOX",
+    "sent": "SENT",
+    "trash": "TRASH",
+    "spam": "SPAM",
+    "draft": "DRAFT",
+    "starred": "STARRED",
+    "unread": "UNREAD",
+    "job_category": "jobs_applica"
+}
 
 # Get the list of messages
-messages = list_messages(service)
+label_list = ['inbox', 'job_category','social','promotions','updates']
+for label in label_list:
+    email_data = get_all_emails(service,label_names=label_system[label])
+    with open(os.path.join(folder_name,label+'_all.json'), 'w') as f:
+        json.dump(email_data, f, indent=2)
 
-# Retrieve each message's metadata and main contents
-email_data = []
-for msg in messages:
-    msg_id = msg['id']
-    message_details = get_message(service, 'me', msg_id)
-    if message_details:
-        email_data.append(message_details)
+
+
 # %%
-for i in range(20):
-    print('---'*10)
-    print(i)
-    print(email_data[i]['sender'])
+# from googleapiclient.errors import HttpError
+
+
+
+# def list_all_labels(service):
+#     try:
+#         results = service.users().labels().list(userId='me').execute()
+#         labels = results.get('labels', [])
+
+#         if not labels:
+#             print('No labels found.')
+#             return
+
+#         print('Labels:')
+#         for label in labels:
+#             print(f"Name: {label['name']}")
+#             print(f"ID: {label['id']}")
+#             print(f"Type: {label['type']}")
+#             print(f"Message List Visibility: {label.get('messageListVisibility', 'Not specified')}")
+#             print(f"Label List Visibility: {label.get('labelListVisibility', 'Not specified')}")
+#             print(f"Total Messages: {label.get('messagesTotal', 'Not available')}")
+#             print(f"Unread Messages: {label.get('messagesUnread', 'Not available')}")
+#             print('-' * 50)
+
+#     except HttpError as error:
+#         print(f'An error occurred: {error}')
+
+# list_all_labels(service)
 # %%
