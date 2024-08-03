@@ -34,7 +34,7 @@ load_dotenv(dotenv_path)
 
 # Request all access (permission to read/send/receive emails, manage the inbox, and more)
 SCOPES = ['https://mail.google.com/']
-our_email = 'zihanren.ds@gmail.com'
+our_email = os.getenv('gmail_address')
 PATH_credentails = os.getenv('gmail_credential')
 # %%
 def gmail_authenticate():
