@@ -8,3 +8,7 @@ requests
 ipykernel
 python-dotenv
 beautifulsoup4
+openai
+langchain-openai
+langchain-community
+unstructured
