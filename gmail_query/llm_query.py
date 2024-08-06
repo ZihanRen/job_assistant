@@ -24,9 +24,10 @@ load_dotenv(dotenv_path)
 openai.api_key = os.environ['OPENAI_API_KEY']
 
 
-root_dir = '../db/raw/20240802/'
-job_emails = read_json(os.path.join(root_dir,'all_jobs.json'))
-job_email_samples = job_emails[:10]
+root_dir = '../db/20240802/'
+job_emails_all = read_json(os.path.join(root_dir,'all_emails_job.json'))
+print("Total number of emails processed by LLM is {}".format(len(job_emails_all)))
+
 
 #%% set up llm
 '''
@@ -97,7 +98,9 @@ job_process_list = []
 llm_meta_list = []
 
 
-for job_email in job_email_samples:
+for job_email in job_emails_all:
+    print("Processing email id: {}".format(job_email['email_id']))
+    print('\n')
     input_data = json.dumps(job_email)
     chain_result = extraction_chain.invoke({"input": input_data})
     
@@ -112,7 +115,7 @@ for job_email in job_email_samples:
 
 
 #%% save json file
-with open(os.path.join(root_dir,'job_process_list_sample.json'), 'w') as f:
+with open(os.path.join(root_dir,'job_list_all.json'), 'w') as f:
     json.dump(job_process_list, f, indent=2)
 
 
@@ -120,17 +123,17 @@ with open(os.path.join(root_dir,'job_process_list_sample.json'), 'w') as f:
 
 
 # %% calculate avg tokens
-total_input = 0
-total_output = 0
-for meta_data in llm_meta_list:
-    total_input += meta_data['input_tokens']
-    total_output += meta_data['output_tokens']
+# total_input = 0
+# total_output = 0
+# for meta_data in llm_meta_list:
+#     total_input += meta_data['input_tokens']
+#     total_output += meta_data['output_tokens']
 
-avg_input = total_input/len(llm_meta_list)
-avg_output = total_output/len(llm_meta_list)
+# avg_input = total_input/len(llm_meta_list)
+# avg_output = total_output/len(llm_meta_list)
 
-input_cost_avg = avg_input * (0.15/1e6)
-output_cost_avg = avg_output * (0.6/1e6)
+# input_cost_avg = avg_input * (0.15/1e6)
+# output_cost_avg = avg_output * (0.6/1e6)
 
 
 # %%
