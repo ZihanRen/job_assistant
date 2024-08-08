@@ -1,16 +1,40 @@
 #%%
 import openai 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import json
-from langchain_community.utilities import GoogleSearchAPIWrapper
-import os
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain.schema.output_parser import StrOutputParser
+from typing import List
 from pydantic import BaseModel, Field
 from langchain.utils.openai_functions import convert_pydantic_to_openai_function
+from typing import Optional
+from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_community.utilities import GoogleSearchAPIWrapper
 from langchain_core.tools import Tool
+from langchain_community.document_loaders import UnstructuredURLLoader
+import json
+from difflib import SequenceMatcher
+import os
+import openai 
+from dotenv import load_dotenv, find_dotenv
+import json
+from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain.schema.output_parser import StrOutputParser
+from typing import List
+from pydantic import BaseModel, Field
+from langchain.utils.openai_functions import convert_pydantic_to_openai_function
+from typing import Optional
+from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_community.utilities import GoogleSearchAPIWrapper
+from langchain_core.tools import Tool
+from langchain_community.document_loaders import UnstructuredURLLoader
 import requests
 from bs4 import BeautifulSoup
+import json
 
 def scrape_website(url):
     # Send a GET request to the URL
@@ -66,22 +90,44 @@ dotenv_path = os.path.join('..', '.env')
 load_dotenv(dotenv_path)
 openai.api_key = os.environ['OPENAI_API_KEY']
 root_dir = '../db/20240802'
-job_data = read_json(os.path.join(root_dir,'jobs_merge.json'))
+job_data = read_json(os.path.join(root_dir,'job_list_all.json'))
+
+# %% merge redundant company into one json
+job_list_flat = []
+
+for individual_email in job_data:
+    for company_info in individual_email['query_list']:
+        job_list_flat.append(company_info)
+
+
+def merge_companies(data):
+    merged = {}
+    
+    def company_exists(name):
+        for existing_name in merged.keys():
+            if SequenceMatcher(None, name.lower(), existing_name.lower()).ratio() > 0.8:
+                return existing_name
+        return None
+
+    for item in data:
+        company_name = item['name']
+        position = item['position']
+        
+        existing_name = company_exists(company_name)
+        
+        if existing_name:
+            merged[existing_name]['positions'].append(position)
+        else:
+            merged[company_name] = {'name': company_name, 'positions': [position]}
+    
+    return list(merged.values())
+
+
+jobs_merge = merge_companies(job_list_flat)
+
+
 
 #%% initialize llm
-
-search = GoogleSearchAPIWrapper()
-
-def top_results(query):
-    return search.results(query, 1)
-
-
-tool = Tool(
-    name="Google Search Snippets",
-    description="Search Google for recent results.",
-    func=top_results,
-)
-
 class Overview(BaseModel):
     """Overview of a section of text."""
     summary: str = Field(description="Provide a concise summary of the company this url is describing.")
@@ -126,27 +172,26 @@ tagging_model = model.bind(
 tagging_chain = prompt | tagging_model
  # %% llm search engine to find company information
 
-for i in range(len(job_data)):
-    # if the query_status is already done, skip this company
-    if job_data[i]['query_status'].lower() == 'done':
-        print(f"Company {job_data[i]['name']} has already been processed. Skipping...")
-        print('\n')
-        continue
+search = GoogleSearchAPIWrapper()
 
+
+def top_results(query):
+    return search.results(query, 1)
+
+
+tool = Tool(
+    name="Google Search Snippets",
+    description="Search Google for recent results.",
+    func=top_results,
+)
+
+for i in range(len(jobs_merge)):
     print(f"Processing {i}th company")
     print('\n')
-    try:
-
-        company_name = job_data[i]['name']
-        top_search = tool.run(f"site:linkedin.com What is company {company_name}")
-        url = top_search[0]['link']
-        structured_data = scrape_website(url)
-    except Exception as e:
-        print(f"Error for company: {company_name} (index: {i})")
-        print(f"Error message: {str(e)}")
-        print("Skipping this company and continuing...")
-        continue
-
+    company_name = jobs_merge[i]['name']
+    top_search = tool.run(f"site:linkedin.com What is company {company_name}")
+    url = top_search[0]['link']
+    structured_data = scrape_website(url)
     input_data = json.dumps(structured_data)
     chain_result = tagging_chain.invoke({"input": input_data})
 
@@ -160,11 +205,10 @@ for i in range(len(job_data)):
         print("Skipping this company and continuing...")
         continue
     
-    # if successful, update the job_data with the extracted information
-    job_data[i].update(json_response)
-    job_data[i]['query_status'] = 'done'
+    jobs_merge[i].update(json_response)
 
-    # update job merge work with the new data
-    with open(os.path.join(root_dir, 'jobs_merge.json'), 'w') as f:
-        json.dump(job_data, f)
+
+# save job merge
+with open(os.path.join(root_dir, 'job_complete_profile.json'), 'w') as f:
+    json.dump(jobs_merge, f)
 
