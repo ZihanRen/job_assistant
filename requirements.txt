@@ -13,3 +13,6 @@ langchain-openai
 langchain-community
 unstructured
 duckduckgo-search
+matplotlib
+seaborn
+openpyxl

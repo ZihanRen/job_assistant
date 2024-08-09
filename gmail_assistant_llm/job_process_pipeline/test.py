@@ -1,4 +1,9 @@
 #%%
+import gmail_job_assistant_llm
+
+
+
+#%%
 import openai 
 from dotenv import load_dotenv, find_dotenv
 import json

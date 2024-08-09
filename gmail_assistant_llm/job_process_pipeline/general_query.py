@@ -1,4 +1,7 @@
 #%%
+
+
+#%%
 import os
 import pickle
 # Gmail API utils
@@ -23,13 +26,16 @@ from googleapiclient.errors import HttpError
 import os
 from datetime import datetime
 current_date = datetime.now().strftime('%Y%m%d')
+
 folder_name = os.path.join('../db/raw',current_date)
 # Create the folder if it does not exist
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
-
-dotenv_path = os.path.join('..', '.env')
+import gmail_assistant_llm
+import os
+root_dir = os.path.dirname(gmail_assistant_llm.__path__[0])
+dotenv_path = root_dir
 load_dotenv(dotenv_path)
 
 # Request all access (permission to read/send/receive emails, manage the inbox, and more)
@@ -247,10 +253,24 @@ label_system ={
 
 # Get the list of messages
 label_list = ['inbox', 'job_category','social','promotions','updates']
+all_emails = []
 for label in label_list:
     email_data = get_all_emails(service,label_names=label_system[label])
-    with open(os.path.join(folder_name,label+'_all.json'), 'w') as f:
-        json.dump(email_data, f, indent=2)
+    all_emails.extend(email_data)
+
+
+# check if the file exists
+# if not, create it
+# if it does, load the data and append the new data
+
+if os.path.exists(os.path.join('all_emails.json')):
+    with open(os.path.join('all_emails.json'), 'r') as f:
+        history_data = json.load(f)
+
+all_emails.extend(history_data)
+# you need some dynamically concatenate
+with open(os.path.join('all_emails.json'), 'w') as f:
+    json.dump(all_emails, f, indent=2)
 
 
 

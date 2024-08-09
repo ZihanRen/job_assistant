@@ -73,6 +73,9 @@ def add_key(input_json, email_key):
     input_json['email_id'] = email_key
     return input_json
 
+def change_status(input_json):
+    input_json['llm_query_status'] = True
+
 # initialze llm
 model = ChatOpenAI(model="gpt-4o-mini")
 extraction_llm = model.bind(
@@ -99,18 +102,30 @@ llm_meta_list = []
 
 
 for job_email in job_emails_all:
+    if job_email['llm_query_status']:
+        print("Email id: {} has already been processed".format(job_email['email_id']))
+        continue
+    
     print("Processing email id: {}".format(job_email['email_id']))
     print('\n')
     input_data = json.dumps(job_email)
-    chain_result = extraction_chain.invoke({"input": input_data})
-    
-    json_response = json.loads(
-        chain_result.additional_kwargs['function_call']['arguments']
-        )
 
-    json_response = add_key(json_response,job_email['email_id'])
-    job_process_list.append(json_response)
-    llm_meta_list.append(chain_result.usage_metadata)
+    try:
+        chain_result = extraction_chain.invoke({"input": input_data})
+        
+        json_response = json.loads(
+            chain_result.additional_kwargs['function_call']['arguments']
+            )
+
+        json_response = add_key(json_response,job_email['email_id'])
+        json_response = change_status(json_response)
+        job_process_list.append(json_response)
+    except Exception as e:
+        print("Error processing email id: {}".format(job_email['email_id']))
+        print(e)
+        # add status to this email
+        continue
+    # llm_meta_list.append(chain_result.usage_metadata)
 
 
 

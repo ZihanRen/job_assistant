@@ -5,6 +5,8 @@ query_job_info: parse each email json object to extract job info
 #%%
 import json
 import os
+from dotenv import load_dotenv
+import gmail_assistant_llm
 
 def read_json(json_file):
     with open(json_file, 'r') as f:
@@ -12,17 +14,15 @@ def read_json(json_file):
     return data
 
 
-root_dir = '../db/raw/20240802/'
-category_emails = read_json(root_dir + 'job_category_all.json')
-inbox_emails = read_json(root_dir + 'inbox_all.json')
-promotion_emails = read_json(root_dir + 'promotions_all.json')
-social_emails = read_json(root_dir + 'social_all.json')
-all_emails = inbox_emails + promotion_emails + social_emails + category_emails
+dotenv_path = os.path.dirname(gmail_assistant_llm.__path__[0])
+load_dotenv(dotenv_path)
+root_dir = os.path.join(dotenv_path,'db/job/gmail_data/')
+all_emails = read_json(root_dir + 'all_emails.json')
+previous_jobs = read_json(root_dir + 'all_emails_job.json')
 
 
 # %%
 def filter_job_emails(email_object,allowed_domains):
-    
     
     # Extract the sender email from the metadata
     sender = email_object.get('metadata', {}).get('sender', '')
@@ -42,8 +42,18 @@ def filter_job_emails(email_object,allowed_domains):
 allowed_domains = ['@linkedin', '@otta', '@untapped', '@indeed']
 job_emails = [email for email in all_emails if filter_job_emails(email, allowed_domains)]
 
+for email in job_emails:
+    email['query_status'] = False
 
-with open(os.path.join(root_dir,'all_jobs.json'), 'w') as f:
+
+# load previous all emails_job and merge with the new job_emails
+all_jobs = read_json(root_dir + 'all_emails_job.json')
+job_emails.extend(all_jobs)
+
+
+
+#%%
+with open(os.path.join(root_dir,'all_emails_job.json'), 'w') as f:
     json.dump(job_emails, f, indent=2)
 
 # %% 
