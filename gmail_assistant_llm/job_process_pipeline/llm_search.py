@@ -136,7 +136,6 @@ for i in range(len(job_data)):
     print(f"Processing {i}th company")
     print('\n')
     try:
-
         company_name = job_data[i]['name']
         top_search = tool.run(f"site:linkedin.com What is company {company_name}")
         url = top_search[0]['link']
