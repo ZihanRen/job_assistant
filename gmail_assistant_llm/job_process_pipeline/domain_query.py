@@ -20,5 +20,6 @@ query_state = read_json(
 
 
 #%%
-from gmail_assistant_llm.job_process_pipeline.util import *
+from gmail_assistant_llm.job_process_pipeline.etl_functions import *
 job_emails = Filter_by_domain(all_emails).filter()
+# %%

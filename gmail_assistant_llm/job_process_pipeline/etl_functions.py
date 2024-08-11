@@ -1,33 +1,10 @@
 import json
 import os
 from difflib import SequenceMatcher
+from datetime import datetime
 from gmail_assistant_llm.util import *
-
-class Merge_New_Emails:
-    def __init__(self, new_emails):
-        self.new_emails = new_emails
-        self.history_emails = read_json(get_path(os.getenv('ALL_EMAILS')))
-        self.query_gmail_state = read_json(get_path(os.getenv('QUERY_GMAIL_STATE')))
-
-    def cache(self):
-        save_json('cache/history_emails.json',self.history_emails)
-        save_json('cache/query_gmail_state.json',self.query_gmail_state)
-
-    def merge(self):
-        self.cache()
-        for email in self.new_emails:
-            email_id = email['email_id']
-            if email_id not in self.query_gmail_state:
-                self.query_gmail_state[email_id] = {}
-                self.query_gmail_state[email_id]['general_query_status'] = True
-                self.query_gmail_state[email_id]['llm_query_status'] = False
-                # append to the history_emails
-                self.history_emails.append(email)
-
-        # update the state and history emails
-        save_json(get_path(os.getenv('ALL_EMAILS')),self.history_emails)
-        save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),self.query_gmail_state)
-
+import json
+import os
 
 
 class Filter_by_domain:
@@ -60,14 +37,96 @@ class Filter_by_domain:
         job_emails = [email for email in self.all_emails if self.filter_job_emails(email)]
         return job_emails
 
+class Merge_New_Emails:
+    def __init__(self, new_emails):
+        '''
+        Merge new emails with all historical emails json object
+        update query state from new emails
+        '''
+        self.new_emails = new_emails
+        self.history_emails = read_json(get_path(os.getenv('ALL_EMAILS')))
+        self.query_gmail_state = read_json(get_path(os.getenv('QUERY_GMAIL_STATE')))
 
-class Flat_Merge:
-    def __init__(self, job_data,history_data=None):
+    def cache(self):
+        save_json('cache/history_emails.json',self.history_emails)
+        save_json('cache/query_gmail_state.json',self.query_gmail_state)
+
+    def merge(self):
+        self.cache()
+        for email in self.new_emails:
+            email_id = email['email_id']
+            if email_id not in self.query_gmail_state:
+                self.query_gmail_state[email_id] = {}
+                self.query_gmail_state[email_id]['general_query_status'] = True
+                self.query_gmail_state[email_id]['llm_query_status'] = False
+                # append to the history_emails
+                self.history_emails.append(email)
+
+        # update the state and history emails
+        save_json(get_path(os.getenv('ALL_EMAILS')),self.history_emails)
+        save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),self.query_gmail_state)
+
+
+
+# merge job list overlap with existing job list
+class Merge_New_Job_List:
+    def __init__(self, new_jobs):
+
+        '''
+        Given two lists:
+        new_jobs: new job list
+        history_jobs: historical job list
+        '''
+        self.new_jobs = new_jobs
+        self.history_jobs = read_json(get_path(os.getenv('JOB_LIST_FINAL')))
+        self.existing_companies = [company['name'] for company in self.history_jobs]
+        self.job_list_overlap = [company for company in self.new_jobs if company['name'] in self.existing_companies]
+
+    def cache(self):
+        # get current date in string
+
+        current_date = datetime.now().strftime("%Y%m%d")
+        save_json(f'cache/jobs_list_complete_{current_date}.json',self.history_jobs)
+
+    def merge_json_lists(self):
+        merged = {}
+        
+        # Process the first list
+        for item in self.history_jobs:
+            company_name = item['name']
+            merged[company_name] = item
+            merged[company_name]['positions'] = item.get('positions', [])
+
+        # Process the second list
+        for item in self.new_jobs:
+            company_name = item['name']
+            if company_name in merged:
+                # If company exists, extend the positions list
+                merged[company_name]['positions'].extend(item.get('positions', []))
+            else:
+                # If company doesn't exist, add it to merged
+                merged[company_name] = item
+                merged[company_name]['positions'] = item.get('positions', [])
+
+        new_data = list(merged.values())
+        return new_data
+
+
+
+class Flat_Self_Merge:
+    def __init__(self, job_data):
+        '''
+        Flatten LLM queried job list
+        self-merge
+
+        input:
+        job_process_list: LLM queried email data
+        '''
         
         # job_data: LLM queried email data
         self.job_data = job_data
         self.job_list_flat = []
-        self.history_data = history_data  
+        
 
         for individual_email in job_data:
             for company_info in individual_email['query_list']:
