@@ -1,10 +1,8 @@
-import json
 import os
 from difflib import SequenceMatcher
 from datetime import datetime
 from gmail_assistant_llm.util import *
-import json
-import os
+from datetime import datetime
 
 
 class Filter_by_domain:
@@ -68,15 +66,14 @@ class Merge_New_Emails:
 
 
 
-# merge job list overlap with existing job list
 class Merge_New_Job_List:
     def __init__(self, new_jobs):
-
         '''
         Given two lists:
         new_jobs: new job list
         history_jobs: historical job list
         '''
+    
         self.new_jobs = new_jobs
         self.history_jobs = read_json(get_path(os.getenv('JOB_LIST_FINAL')))
         self.existing_companies = [company['name'] for company in self.history_jobs]
@@ -84,33 +81,46 @@ class Merge_New_Job_List:
 
     def cache(self):
         # get current date in string
-
         current_date = datetime.now().strftime("%Y%m%d")
-        save_json(f'cache/jobs_list_complete_{current_date}.json',self.history_jobs)
+        save_json(f'cache/jobs_list_complete_{current_date}.json', self.history_jobs)
 
     def merge_json_lists(self):
         merged = {}
         
-        # Process the first list
+        # Helper function to parse date strings
+        def parse_date(date_str):
+            return datetime.strptime(date_str, "%Y-%m-%d")
+        
+        # Process the historical jobs list
         for item in self.history_jobs:
             company_name = item['name']
             merged[company_name] = item
             merged[company_name]['positions'] = item.get('positions', [])
+            merged[company_name]['date'] = parse_date(item['date'])
 
-        # Process the second list
+        # Process the new jobs list
         for item in self.new_jobs:
             company_name = item['name']
+            new_date = parse_date(item['date'])
+            
             if company_name in merged:
                 # If company exists, extend the positions list
                 merged[company_name]['positions'].extend(item.get('positions', []))
+                # Update date if the new date is more recent
+                if new_date > merged[company_name]['date']:
+                    merged[company_name]['date'] = new_date
             else:
                 # If company doesn't exist, add it to merged
                 merged[company_name] = item
                 merged[company_name]['positions'] = item.get('positions', [])
+                merged[company_name]['date'] = new_date
+
+        # Convert datetime objects back to string format
+        for company in merged.values():
+            company['date'] = company['date'].strftime("%Y-%m-%d")
 
         new_data = list(merged.values())
         return new_data
-
 
 
 class Flat_Self_Merge:
@@ -144,12 +154,109 @@ class Flat_Self_Merge:
         for item in self.job_list_flat:
             company_name = item['name']
             position = item['position']
+            date = item['date']
             
             existing_name = company_exists(company_name)
             
             if existing_name:
                 merged[existing_name]['positions'].append(position)
+                # Update the date if the current item's date is more recent
+                if date > merged[existing_name]['date']:
+                    merged[existing_name]['date'] = date
             else:
-                merged[company_name] = {'name': company_name, 'positions': [position]}
+                merged[company_name] = {
+                    'name': company_name, 
+                    'positions': [position],
+                    'date': date
+                }
         
         return list(merged.values())
+
+
+
+
+# merge job list overlap with existing job list
+# class Merge_New_Job_List:
+#     def __init__(self, new_jobs):
+
+#         '''
+#         Given two lists:
+#         new_jobs: new job list
+#         history_jobs: historical job list
+#         '''
+    
+#         self.new_jobs = new_jobs
+#         self.history_jobs = read_json(get_path(os.getenv('JOB_LIST_FINAL')))
+#         self.existing_companies = [company['name'] for company in self.history_jobs]
+#         self.job_list_overlap = [company for company in self.new_jobs if company['name'] in self.existing_companies]
+
+#     def cache(self):
+#         # get current date in string
+
+#         current_date = datetime.now().strftime("%Y%m%d")
+#         save_json(f'cache/jobs_list_complete_{current_date}.json',self.history_jobs)
+
+#     def merge_json_lists(self):
+#         merged = {}
+        
+#         # Process the first list
+#         for item in self.history_jobs:
+#             company_name = item['name']
+#             merged[company_name] = item
+#             merged[company_name]['positions'] = item.get('positions', [])
+
+#         # Process the second list
+#         for item in self.new_jobs:
+#             company_name = item['name']
+#             if company_name in merged:
+#                 # If company exists, extend the positions list
+#                 merged[company_name]['positions'].extend(item.get('positions', []))
+#             else:
+#                 # If company doesn't exist, add it to merged
+#                 merged[company_name] = item
+#                 merged[company_name]['positions'] = item.get('positions', [])
+
+#         new_data = list(merged.values())
+#         return new_data
+
+
+# class Flat_Self_Merge:
+#     def __init__(self, job_data):
+#         '''
+#         Flatten LLM queried job list
+#         self-merge
+
+#         input:
+#         job_process_list: LLM queried email data
+#         '''
+        
+#         # job_data: LLM queried email data
+#         self.job_data = job_data
+#         self.job_list_flat = []
+        
+
+#         for individual_email in job_data:
+#             for company_info in individual_email['query_list']:
+#                 self.job_list_flat.append(company_info)
+        
+#     def self_merge(self):
+#         merged = {}
+        
+#         def company_exists(name):
+#             for existing_name in merged.keys():
+#                 if SequenceMatcher(None, name.lower(), existing_name.lower()).ratio() > 0.8:
+#                     return existing_name
+#             return None
+
+#         for item in self.job_list_flat:
+#             company_name = item['name']
+#             position = item['position']
+            
+#             existing_name = company_exists(company_name)
+            
+#             if existing_name:
+#                 merged[existing_name]['positions'].append(position)
+#             else:
+#                 merged[company_name] = {'name': company_name, 'positions': [position]}
+        
+#         return list(merged.values())

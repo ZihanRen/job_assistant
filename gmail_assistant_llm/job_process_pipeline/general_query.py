@@ -12,10 +12,3 @@ merge_etl = Merge_New_Emails(email_data)
 merge_etl.merge()
 history_emails = read_json('cache/history_emails.json')
 query_gmail_state = read_json('cache/query_gmail_state.json')
-
-
-
-
-
-
-# %%

@@ -4,6 +4,8 @@ from typing import List
 from pydantic import BaseModel, Field
 from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from typing import Optional
+from datetime import datetime
+
 
 
 class Position(BaseModel):
@@ -17,11 +19,14 @@ class Position(BaseModel):
     description: Optional[str] = Field(description='Description of the job')
 
 class Company(BaseModel):
+
     '''
     Informaiton about the company
     '''
+    
     name: str = Field(description='Company Name')
     position: Position = Field(description="Position information")
+    date: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01" ')
 
 
 class Parselist(BaseModel):
@@ -29,7 +34,6 @@ class Parselist(BaseModel):
     Result of parsing given email
     '''
     query_list: List[Company] = Field(description='list of company information')
-
 
 
 class Extraction_LLM:
@@ -62,6 +66,12 @@ class Extraction_LLM:
         ])
 
         self.extraction_chain = prompt | self.extraction_llm
+    
+    def parse_date(self, date_str: str) -> Optional[datetime]:
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError:
+            return None
 
         
 
@@ -117,24 +127,40 @@ class Search_Company_LLM:
         self.extraction_chain = prompt | self.extraction_llm
 
 
-# overview_extraction_function = [
-#     convert_pydantic_to_openai_function(Overview)
-# ]
 
-# model = ChatOpenAI(model="gpt-4o-mini")
+class Time_Extractor(BaseModel):
+    """Overview of a section of text."""
+    recent_update: str = Field(description="Provide a concise most recent time Extraction of the company json object\
+                       from a list of position description in json format which contain time date info\
+                       in the format of YYYY-MM-DD, such as '2024-01-01'.\
+                      There are multiple dates inside the description, you should return the most recent one. \
+                      If you can't find relevant information, please return None")
 
-# prompt = ChatPromptTemplate.from_messages([
-#     ("system",
-#         "extract information from web page query results. Your goal is to \
-#     get informatino about company. If you can't find relevant information, \
-#     please return None"
-#     ),
-#     ("human", "{input}")
-# ])
+class Get_Time_LLM:
+    def __init__(self):
+        self.extract_function = [
+            convert_pydantic_to_openai_function(
+            Time_Extractor)
+            ]
 
-# tagging_model = model.bind(
-#     functions=overview_extraction_function,
-#     function_call={"name":"Overview"}
-# )
+        # initialze llm
+        model = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0
+            )
+        
+        self.extraction_llm = model.bind(
+                        functions=self.extract_function,
+                        function_call = {'name':"Time_Extractor"},
+                                )
 
-# tagging_chain = prompt | tagging_model
+        prompt = ChatPromptTemplate.from_messages([
+            ("system",
+                "extract most recent time from a list of json object. Your goal is to \
+            If you can't find relevant information, \
+            please return None"
+            ),
+            ("human", "{input}")
+        ])
+
+        self.extraction_chain = prompt | self.extraction_llm
