@@ -129,37 +129,38 @@ class Search_Company_LLM:
 
 
 class Time_Extractor(BaseModel):
-    """Overview of a section of text."""
-    recent_update: str = Field(description="Provide a concise most recent time Extraction of the company json object\
-                       from a list of position description in json format which contain time date info\
-                       in the format of YYYY-MM-DD, such as '2024-01-01'.\
-                      There are multiple dates inside the description, you should return the most recent one. \
-                      If you can't find relevant information, please return None")
+    """Extracts the most recent date from a list of date strings."""
+    recent_update: str = Field(description="The most recent date found in the list, in the format YYYY-MM-DD. \
+                               If no valid date is found, return None.")
 
 class Get_Time_LLM:
     def __init__(self):
         self.extract_function = [
-            convert_pydantic_to_openai_function(
-            Time_Extractor)
-            ]
+            convert_pydantic_to_openai_function(Time_Extractor)
+        ]
 
-        # initialze llm
         model = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0
-            )
+        )
         
         self.extraction_llm = model.bind(
-                        functions=self.extract_function,
-                        function_call = {'name':"Time_Extractor"},
-                                )
+            functions=self.extract_function,
+            function_call={'name': "Time_Extractor"},
+        )
 
         prompt = ChatPromptTemplate.from_messages([
             ("system",
-                "extract most recent time from a list of json object. Your goal is to \
-            If you can't find relevant information, \
-            please return None"
-            ),
+             "You are an expert in date extraction and interpretation. Your task is to analyze a list of strings that may contain date information. "
+             "These strings can include various date formats, both standard (like YYYY-MM-DD) and non-standard (like 'last Tuesday'), as well as semantic references (like 'updated yesterday'). "
+             "Your goal is to:"
+             "1. Identify all potential dates in the list."
+             "2. Interpret any semantic date references relative to the current date."
+             "3. Convert all identified dates to a standard YYYY-MM-DD format."
+             "4. Determine the most recent date among all identified dates."
+             "5. Return the most recent date in YYYY-MM-DD format."
+             "If you can't find any valid dates or if the date references are too ambiguous, return None."
+             "Remember, accuracy is crucial. If you're unsure about a date reference, it's better to exclude it than to make an incorrect assumption."),
             ("human", "{input}")
         ])
 

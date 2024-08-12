@@ -46,8 +46,11 @@ class Merge_New_Emails:
         self.query_gmail_state = read_json(get_path(os.getenv('QUERY_GMAIL_STATE')))
 
     def cache(self):
-        save_json('cache/history_emails.json',self.history_emails)
-        save_json('cache/query_gmail_state.json',self.query_gmail_state)
+        # get current date in string
+        current_date = datetime.now().strftime("%Y%m%d")
+
+        save_json(f'cache/history_emails_{current_date}.json',self.history_emails)
+        save_json(f'cache/query_gmail_state_{current_date}.json',self.query_gmail_state)
 
     def merge(self):
         self.cache()

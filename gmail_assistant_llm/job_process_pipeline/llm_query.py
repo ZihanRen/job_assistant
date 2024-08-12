@@ -63,7 +63,10 @@ for job_email in job_emails_all:
     llm_meta_list.append(chain_result.usage_metadata)
 
 job_flat_list = Flat_Self_Merge(job_process_list).self_merge()
+# update job list
 save_json(get_path(os.getenv('JOB_LIST')),job_flat_list)
+# update query state
+save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),query_state)
 
 #%% merge with history data
 job_list_final = read_json(get_path(os.getenv('JOB_LIST_FINAL')))
