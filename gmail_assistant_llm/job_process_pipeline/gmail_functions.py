@@ -8,7 +8,6 @@ from googleapiclient.errors import HttpError
 from gmail_assistant_llm.util import *
 import os
 
-
 class Gmail_Authenticate:
     def __init__(self):
         self.SCOPES = ['https://mail.google.com/']
@@ -35,15 +34,17 @@ class Gmail_Authenticate:
                 pickle.dump(creds, token)
         return build('gmail', 'v1', credentials=creds)
 
-
-
 class Gmail_Functions:
-    def __init__(self,target_label_list,service):
+    def __init__(self,target_label_list,service,initialize=False):
         '''
         target label should be a list
         '''
         self.service = service
         self.target_label_list = target_label_list
+        self.query_email_state = read_json(get_path(os.getenv('QUERY_GMAIL_STATE')))
+
+        # if initialize is True, the email list will be initialized
+        self.initialize = initialize
         
         # initialze gmail label system
         self.label_system ={
@@ -190,6 +191,9 @@ class Gmail_Functions:
             for i, msg in enumerate(messages, 1):
                 try:
                     msg_id = msg['id']
+                    if self.query_email_state[msg_id]['general_query_status'] == True and not self.initialize:
+                        print(f"Email {msg_id} has already been processed. Skipping.")
+                        continue
                     message_details = self.get_message('me', msg_id)
                     if message_details:
                         email_data.append(message_details)

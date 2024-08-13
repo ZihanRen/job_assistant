@@ -4,12 +4,38 @@ from datetime import datetime
 from gmail_assistant_llm.util import *
 from datetime import datetime
 
+class Initialize_Emails_List:
+    def __init__(self, email_data):
+        '''
+        Initialize email data list
+        '''
+        self.email_data = email_data
+    
+    def save_emails(self):
+        # save email data
+        save_json(get_path(os.getenv('ALL_EMAILS')),self.email_data)
+    
+    def init_email_query_state(self):
+
+        # initialize query state
+        query_gmail_state = {}
+        unique_ids = [email['email_id'] for email in self.email_data]
+        unique_ids = list(set(unique_ids))
+
+        for email_id in unique_ids:
+            query_gmail_state[email_id] = {}
+            query_gmail_state[email_id]['general_query_status'] = True
+            query_gmail_state[email_id]['llm_query_status'] = False
+
+        # save query state
+        save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),query_gmail_state)
+
 
 class Filter_by_domain:
 
     def __init__(self,
                  all_emails,
-                 allowed_domains=['@linkedin', '@otta', '@untapped', '@indeed']
+                 allowed_domains=['@linkedin', '@otta', '@untapped', '@indeed','@dice']
                  ):
         self.all_emails = all_emails
         self.allowed_domains = allowed_domains
@@ -92,35 +118,44 @@ class Merge_New_Job_List:
         
         # Helper function to parse date strings
         def parse_date(date_str):
-            return datetime.strptime(date_str, "%Y-%m-%d")
+            if date_str is None or date_str == 'None':
+                return None
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                # If parsing fails, return None
+                return None
         
         # Process the historical jobs list
         for item in self.history_jobs:
             company_name = item['name']
             merged[company_name] = item
             merged[company_name]['positions'] = item.get('positions', [])
-            merged[company_name]['date'] = parse_date(item['date'])
+            merged[company_name]['recent_update'] = parse_date(item.get('recent_update'))
 
         # Process the new jobs list
         for item in self.new_jobs:
             company_name = item['name']
-            new_date = parse_date(item['date'])
+            new_date = parse_date(item.get('recent_update'))
             
             if company_name in merged:
                 # If company exists, extend the positions list
                 merged[company_name]['positions'].extend(item.get('positions', []))
-                # Update date if the new date is more recent
-                if new_date > merged[company_name]['date']:
-                    merged[company_name]['date'] = new_date
+                # Update date if the new date is more recent and not None
+                if new_date is not None and (merged[company_name]['recent_update'] is None or new_date > merged[company_name]['recent_update']):
+                    merged[company_name]['recent_update'] = new_date
             else:
                 # If company doesn't exist, add it to merged
                 merged[company_name] = item
                 merged[company_name]['positions'] = item.get('positions', [])
-                merged[company_name]['date'] = new_date
+                merged[company_name]['recent_update'] = new_date
 
-        # Convert datetime objects back to string format
+        # Convert datetime objects back to string format or 'None'
         for company in merged.values():
-            company['date'] = company['date'].strftime("%Y-%m-%d")
+            if company['recent_update'] is not None:
+                company['recent_update'] = company['recent_update'].strftime("%Y-%m-%d")
+            else:
+                company['recent_update'] = 'None'
 
         new_data = list(merged.values())
         return new_data
@@ -157,20 +192,20 @@ class Flat_Self_Merge:
         for item in self.job_list_flat:
             company_name = item['name']
             position = item['position']
-            date = item['date']
+            date = item['recent_update']
             
             existing_name = company_exists(company_name)
             
             if existing_name:
                 merged[existing_name]['positions'].append(position)
                 # Update the date if the current item's date is more recent
-                if date > merged[existing_name]['date']:
-                    merged[existing_name]['date'] = date
+                if date > merged[existing_name]['recent_update']:
+                    merged[existing_name]['recent_update'] = date
             else:
                 merged[company_name] = {
                     'name': company_name, 
                     'positions': [position],
-                    'date': date
+                    'recent_update': date
                 }
         
         return list(merged.values())

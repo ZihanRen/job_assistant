@@ -26,7 +26,7 @@ class Company(BaseModel):
     
     name: str = Field(description='Company Name')
     position: Position = Field(description="Position information")
-    date: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01" ')
+    recent_update: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01" ')
 
 
 class Parselist(BaseModel):
