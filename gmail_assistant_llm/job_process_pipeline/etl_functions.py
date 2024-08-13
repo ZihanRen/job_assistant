@@ -74,7 +74,10 @@ class Merge_New_Emails:
     def cache(self):
         # get current date in string
         current_date = datetime.now().strftime("%Y%m%d")
+        # if folder does not exist, create it
 
+        if not os.path.exists('cache'):
+            os.makedirs('cache')
         save_json(f'cache/history_emails_{current_date}.json',self.history_emails)
         save_json(f'cache/query_gmail_state_{current_date}.json',self.query_gmail_state)
 

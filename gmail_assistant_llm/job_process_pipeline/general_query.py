@@ -10,10 +10,16 @@ from gmail_assistant_llm.util import *
 # %% merge with historical data
 
 class General_Query:
-    def __init__(self,initialize = False):
-        self.authenticate = Gmail_Authenticate()
-        self.gmail_prc = Gmail_Functions(['inbox'],self.authenticate.service,initialize=initialize)
+    def __init__(self,initialize = False,query_labels = ['inbox','social','promotions','updates']):
+        self.query_labels = query_labels
         self.initialize = initialize
+
+        self.authenticate = Gmail_Authenticate()
+        self.gmail_prc = Gmail_Functions(
+            target_label_list=query_labels,
+            service=self.authenticate.service,
+            initialize=initialize
+            )
 
     def run_query(self):
         self.email_data = self.gmail_prc.get_all_emails_all_labels()
