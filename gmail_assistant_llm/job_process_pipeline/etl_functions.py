@@ -75,11 +75,17 @@ class Merge_New_Emails:
         # get current date in string
         current_date = datetime.now().strftime("%Y%m%d")
         # if folder does not exist, create it
-
-        if not os.path.exists('cache'):
-            os.makedirs('cache')
-        save_json(f'cache/history_emails_{current_date}.json',self.history_emails)
-        save_json(f'cache/query_gmail_state_{current_date}.json',self.query_gmail_state)
+        if not os.path.exists(get_path(os.getenv('CACHE'))):
+            os.makedirs(get_path(os.getenv('CACHE')))
+        
+        save_json(
+            os.path.join(get_path(os.getenv('CACHE')),f'history_emails_{current_date}.json'),
+            self.history_emails
+            )
+        save_json(
+            os.path.join(get_path(os.getenv('CACHE')),f'query_gmail_state_{current_date}.json'),
+            self.query_gmail_state
+            )
 
     def merge(self):
         self.cache()
@@ -114,7 +120,12 @@ class Merge_New_Job_List:
     def cache(self):
         # get current date in string
         current_date = datetime.now().strftime("%Y%m%d")
-        save_json(f'cache/jobs_list_complete_{current_date}.json', self.history_jobs)
+        path = os.path.join(
+            get_path(os.getenv('CACHE')),
+            f'jobs_list_{current_date}.json'
+            )
+        
+        save_json(path, self.history_jobs)
 
     def merge_json_lists(self):
         merged = {}
@@ -182,7 +193,8 @@ class Flat_Self_Merge:
         for individual_email in job_data:
             for company_info in individual_email['query_list']:
                 self.job_list_flat.append(company_info)
-        
+
+
     def self_merge(self):
         merged = {}
         

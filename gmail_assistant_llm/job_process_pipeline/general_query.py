@@ -50,8 +50,10 @@ class General_Query:
 # query_gmail_state = read_json('cache/query_gmail_state.json')
 
 if __name__ == '__main__':
-    # authenticate = Gmail_Authenticate()
-    # gmail_prc = Gmail_Functions(['inbox'],authenticate.service)
-    # email_data = gmail_prc.get_all_emails_all_labels()
+
+    # read email data
+
+
+
     query = General_Query(initialize=False)
     query.run_query()

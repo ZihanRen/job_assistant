@@ -73,9 +73,9 @@ class LLM_Search:
             # update query state
             self.query_company_state[company_name]['search_state'] = True
 
-            # update job merge work with the new data
-            save_json(get_path(os.getenv('JOB_LIST_FINAL')),self.job_data)
-            save_json(get_path(os.getenv('QUERY_COMPANY_STATE')),self.query_company_state)
+        # update job merge work with the new data
+        save_json(get_path(os.getenv('JOB_LIST_FINAL')),self.job_data)
+        save_json(get_path(os.getenv('QUERY_COMPANY_STATE')),self.query_company_state)
 
     
 

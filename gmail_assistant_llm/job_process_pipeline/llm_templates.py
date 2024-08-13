@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from typing import Optional
 from datetime import datetime
-
-
+from pydantic import BaseModel, Field, ValidationError
+import json
 
 class Position(BaseModel):
     '''
@@ -26,7 +26,8 @@ class Company(BaseModel):
     
     name: str = Field(description='Company Name')
     position: Position = Field(description="Position information")
-    recent_update: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01" ')
+    recent_update: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01",\
+                                     if dates cannot be found, fill in with None ')
 
 
 class Parselist(BaseModel):
@@ -39,38 +40,74 @@ class Parselist(BaseModel):
 class Extraction_LLM:
     def __init__(self):
         self.extract_function = [
-            convert_pydantic_to_openai_function(
-            Parselist)
-            ]
+            convert_pydantic_to_openai_function(Parselist)
+        ]
 
-        # initialze llm
+        # initialize llm
         model = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0
-            )
+        )
         
         self.extraction_llm = model.bind(
-                        functions=self.extract_function,
-                        function_call = {'name':"Parselist"},
-                                )
+            functions=self.extract_function,
+            function_call={'name': "Parselist"},
+        )
 
         prompt = ChatPromptTemplate.from_messages([
             ("system",
-                "extract information from json. Your goal is to \
-            get informatino about company name and position info. The position \
-            information should include post date, location, apply link, \
-            description (if available). If you can't find relevant information, \
-            please return None"
+                "Extract information from json. Your goal is to "
+                "get information about company name and position info. The position "
+                "information should include post date, location, apply link, "
+                "description (if available). If you can't find relevant information, "
+                "please return None"
             ),
             ("human", "{input}")
         ])
 
         self.extraction_chain = prompt | self.extraction_llm
-    
+
     def parse_date(self, date_str: str) -> Optional[datetime]:
         try:
             return datetime.strptime(date_str, '%Y-%m-%d')
         except ValueError:
+            return None
+
+    def parse_llm_output(self, chain_result):
+        try:
+            # Extract the arguments from the function call
+            arguments = chain_result.additional_kwargs['function_call']['arguments']
+            
+            # Parse the arguments as JSON
+            parsed_json = json.loads(arguments)
+            
+            # Then, try to parse it with Pydantic
+            parsed_data = Parselist.parse_obj(parsed_json)
+            
+            # Convert string dates to datetime objects
+            for company in parsed_data.query_list:
+                if isinstance(company.recent_update, str):
+                    company.recent_update = self.parse_date(company.recent_update)
+            return parsed_json
+        
+        except KeyError as e:
+            print(f"KeyError: {e}. The expected structure in chain_result is missing.")
+            return None
+        except json.JSONDecodeError:
+            print("The content inside 'arguments' is not valid JSON")
+            return None
+        except ValidationError as e:
+            print(f"Pydantic validation error: {e}")
+            return None
+
+    def extract_information(self, input_data):
+        chain_result = self.extraction_chain.invoke({"input": input_data})
+        parsed_result = self.parse_llm_output(chain_result)
+        
+        if parsed_result:
+            return parsed_result
+        else:
+            print("Failed to parse LLM output")
             return None
 
         
