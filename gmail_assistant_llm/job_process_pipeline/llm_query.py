@@ -10,6 +10,7 @@ class LLM_Query:
                  allowed_domains=['@linkedin', '@otta', '@untapped', '@indeed','@dice']
                  ):
         
+        
         self.allowed_domains = allowed_domains
         self.all_emails = read_json(
             get_path(os.getenv('ALL_EMAILS'))
@@ -101,13 +102,24 @@ class LLM_Query:
         save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),self.query_state)
     
     @staticmethod
-    def merge_with_history():
+    def merge_with_history(initialize=False):
         job_list = read_json(get_path(os.getenv('JOB_LIST')))
-        merge_process = Merge_New_Job_List(job_list)
-        new_job_list = merge_process.merge_json_lists()
-        # save new list and cache current one
-        merge_process.cache()
-        save_json(get_path(os.getenv('JOB_LIST_FINAL')),new_job_list)
+        if initialize:
+            save_json(get_path(os.getenv('JOB_LIST_FINAL')),job_list)
+            # generate query company state
+            query_company_state = {}
+            for job in job_list:
+                query_company_state[job['name']] = {
+                    'search_state': False,
+                    'applied_state': False
+                }
+            save_json(get_path(os.getenv('QUERY_COMPANY_STATE')),query_company_state)
+        else:
+            merge_process = Merge_New_Job_List(job_list)
+            new_job_list = merge_process.merge_json_lists()
+            # save new list and cache current one
+            merge_process.cache()
+            save_json(get_path(os.getenv('JOB_LIST_FINAL')),new_job_list)
 
 
 if __name__ == '__main__':

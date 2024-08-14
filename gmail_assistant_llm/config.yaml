@@ -1,0 +1,36 @@
+general_query:
+  initialize: false
+  query_labels:
+    - inbox
+    - social
+    - promotions
+    - updates
+    - unread
+
+# reference for label system:
+        # label_system ={
+        # "personal": "CATEGORY_PERSONAL",
+        # "social": "CATEGORY_SOCIAL",
+        # "promotions": "CATEGORY_PROMOTIONS",
+        # "updates": "CATEGORY_UPDATES",
+        # "forums": "CATEGORY_FORUMS",
+        # "inbox": "INBOX",
+        # "sent": "SENT",
+        # "trash": "TRASH",
+        # "spam": "SPAM",
+        # "draft": "DRAFT",
+        # "starred": "STARRED",
+        # "unread": "UNREAD"        # }
+
+llm_query:
+  allowed_domains:
+    - '@linkedin'
+    - '@otta'
+    - '@untapped'
+    - '@indeed'
+    - '@dice'
+
+
+
+
+
