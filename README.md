@@ -12,6 +12,11 @@ This repository contains a Large Language Model (LLM) assistant powered by GPT-4
 - Continuous updating and merging with historical data
 - Export options to Excel or potential for LLM Q&A chatbot integration
 
+## Installation
+Configure the repo as edittable:
+
+`pip install -e .`
+
 ## How It Works
 
 1. **Email Scraping**: Retrieves emails from your Gmail account based on specified labels.
