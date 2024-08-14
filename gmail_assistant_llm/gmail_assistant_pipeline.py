@@ -1,3 +1,4 @@
+#%%
 import yaml
 from gmail_assistant_llm.job_process_pipeline.general_query import General_Query
 from gmail_assistant_llm.job_process_pipeline.llm_query import LLM_Query
@@ -14,6 +15,7 @@ query_config = config['general_query']
 query = General_Query(query_labels=query_config['query_labels'], initialize=query_config['initialize'])
 query.run_query()
 
+#%%
 # start llm query
 llm_query_config = config['llm_query']
 llm_query = LLM_Query(allowed_domains=llm_query_config['allowed_domains'])

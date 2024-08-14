@@ -1,5 +1,5 @@
 general_query:
-  initialize: false
+  initialize: True
   query_labels:
     - inbox
     - social

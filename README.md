@@ -12,10 +12,29 @@ This repository contains a Large Language Model (LLM) assistant powered by GPT-4
 - Continuous updating and merging with historical data
 - Export options to Excel or potential for LLM Q&A chatbot integration
 
-## Installation
-Configure the repo as edittable:
 
-`pip install -e .`
+1. Configure the repository as editable:
+   ```
+   pip install -e .
+   ```
+
+2. Set up your .env variables:
+   ```
+   OPENAI_API_KEY=your_openai_api_key
+   gmail_credentials=/path/to/your/credentials.json
+   gmail_token=/path/to/your/gmail_token.pickle
+   gmail_address=yourgmailaddress@gmail.com
+   GOOGLE_API_KEY=your_google_api_key
+   GOOGLE_CSE_ID=your_google_cse_id
+   QUERY_GMAIL_STATE=db/gmail_query_state.json
+   QUERY_COMPANY_STATE=db/company_query_state.json
+   ALL_EMAILS=db/job/gmail_data/all_emails.json
+   JOB_LIST=db/job/job_list_all.json
+   JOB_LIST_FINAL=db/job/jobs_merge.json
+   CACHE=gmail_assistant_llm/cache
+   ```
+
+
 
 ## How It Works
 
