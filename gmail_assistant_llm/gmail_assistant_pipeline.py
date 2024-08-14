@@ -4,9 +4,9 @@ from gmail_assistant_llm.job_process_pipeline.llm_query import LLM_Query
 from gmail_assistant_llm.job_process_pipeline.llm_search import LLM_Search
 
 # start query
-query_labels = ['inbox','social','promotions','updates']
-query = General_Query(query_labels=query_labels,initialize=False)
-query.run_query()
+# query_labels = ['inbox','social','promotions','updates']
+# query = General_Query(query_labels=query_labels,initialize=False)
+# query.run_query()
 
 # start llm query
 # add allowed domains 
