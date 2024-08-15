@@ -54,6 +54,9 @@ class LLM_Query:
             get_path(os.getenv('CACHE')),
             f'query_gmail_state_{current_date}.json'
             )
+        # check if this cache folder exists
+        if not os.path.exists(get_path(os.getenv('CACHE'))):
+            os.makedirs(get_path(os.getenv('CACHE')))
         
         save_json(path, self.query_state)
         

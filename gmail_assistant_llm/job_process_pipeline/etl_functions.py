@@ -12,6 +12,13 @@ class Initialize_Emails_List:
         self.email_data = email_data
     
     def save_emails(self):
+
+        dir_path = os.path.dirname(get_path(os.getenv('ALL_EMAILS')))
+
+        # Create the directory if it doesn't exist
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        
         # save email data
         save_json(get_path(os.getenv('ALL_EMAILS')),self.email_data)
     
@@ -28,6 +35,10 @@ class Initialize_Emails_List:
             query_gmail_state[email_id]['llm_query_status'] = False
 
         # save query state
+        # check folder structure
+        dir_path = os.path.dirname(get_path(os.getenv('QUERY_GMAIL_STATE')))
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
         save_json(get_path(os.getenv('QUERY_GMAIL_STATE')),query_gmail_state)
 
 
