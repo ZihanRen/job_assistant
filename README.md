@@ -40,12 +40,11 @@ This repository contains a Large Language Model (LLM) assistant powered by GPT-4
    - Gathers info on founding year, IPO status, funding, industry, etc.
 4. **Data Integration**: Automatically merges new data with historical database
 
-This process helps job seekers prioritize applications based on their interests and company profiles, saving time on manual research. 😅 It can be also very helpful to find interesting startup.
-
-The workflow consists of two stages:
+This process helps job seekers prioritize applications based on their interests and company profiles, saving time on manual research. 😅 It can be also very helpful to find interesting startup. There are general two stages of processing:
 
 Stage 1: Raw Gmail data undergoes an ETL process, where LLM queries extract and structure email information into JSON objects. These objects are filtered and updated, then merged into a Historical Database.
-Stage 2: A list of jobs and companies is further enriched through LLM-assisted Google searches. The filtered and summarized company data is updated and merged into the final company info list and Historical Database, ensuring comprehensive and updated job and company information. It's as simple as described in below workflow:
+
+Stage 2: A list of jobs and companies is further enriched through LLM-assisted Google searches. The filtered and summarized company data is updated and merged into the final company info list and Historical Database, ensuring comprehensive and updated job and company information. It's simply summarized in below diagram:
 
 ![alt text](image.png)
 
