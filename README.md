@@ -2,15 +2,9 @@
 
 ## Overview
 
-This repository contains a Large Language Model (LLM) assistant powered by GPT-4 mini, designed to help job seekers organize their Gmail accounts, particularly for job alerts from platforms like LinkedIn, Indeed, Untapped, and others. The project uses the Langchain framework and offers a cost-effective solution, processing over 2000 emails for less than $7.
+This repository contains a Large Language Model (LLM) assistant powered by GPT-4o-mini, designed to help job seekers organize their Gmail data, particularly for job alerts from platforms like LinkedIn, Indeed, Untapped, and others. This tool uses the Langchain framework and offers a cost-effective solution, processing over 2000 emails for less than $6.
 
-## Features
-
-- Email scraping from Gmail based on specific labels
-- ETL process using LLM for structured data extraction
-- Company information enrichment via web search
-- Continuous updating and merging with historical data
-- Export options to Excel or potential for LLM Q&A chatbot integration
+## Installation
 
 
 1. Configure the repository as editable:
@@ -35,7 +29,6 @@ This repository contains a Large Language Model (LLM) assistant powered by GPT-4
    ```
 
 
-
 ## How It Works
 
 1. **Email Scraping**: Retrieves emails from your Gmail account based on specified labels.
@@ -47,9 +40,8 @@ This repository contains a Large Language Model (LLM) assistant powered by GPT-4
    - Gathers info on founding year, IPO status, funding, industry, etc.
 4. **Data Integration**: Automatically merges new data with historical database
 
-This process helps job seekers prioritize applications based on their interests and company profiles, saving time on manual research. 😅
+This process helps job seekers prioritize applications based on their interests and company profiles, saving time on manual research. 😅 It can be also very helpful to find interesting startup.
 
-## Workflow
 The workflow consists of two stages:
 
 Stage 1: Raw Gmail data undergoes an ETL process, where LLM queries extract and structure email information into JSON objects. These objects are filtered and updated, then merged into a Historical Database.
@@ -69,9 +61,9 @@ Stage 2: A list of jobs and companies is further enriched through LLM-assisted G
 
 ## Analysis Options
 
-- Export to Excel (recommended for structured visualization)
-- Analyze using pandas
-- Develop an agent or LLM Q&A chatbot (for more advanced interactions)
+- Simple: Export to Excel (recommended for structured visualization)
+- Programming way: Analyze using pandas
+- Luxurious: Develop an agent or LLM Q&A chatbot (for more advanced interactions)
 
 For Excel export, refer to:
 `gmail_assistant_llm/post_analytics/analyze_jobs.ipynb`
