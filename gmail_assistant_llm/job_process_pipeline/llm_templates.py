@@ -26,7 +26,7 @@ class Company(BaseModel):
     
     name: str = Field(description='Company Name')
     position: Position = Field(description="Position information")
-    recent_update: datetime = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01",\
+    recent_update: str = Field(description='Date of the email. The format should be in YYYY-MM-DD, like "2024-01-01",\
                                      if dates cannot be found, fill in with None ')
 
 
@@ -72,8 +72,6 @@ class Extraction_LLM:
             return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
         except ValueError:
             return None
-
-
 
     def parse_llm_output(self, chain_result):
         try:

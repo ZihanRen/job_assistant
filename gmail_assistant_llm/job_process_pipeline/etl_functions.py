@@ -141,15 +141,22 @@ class Merge_New_Job_List:
     def merge_json_lists(self):
         merged = {}
         
-        # Helper function to parse date strings
         def parse_date(date_str):
             if date_str is None or date_str == 'None':
                 return None
             try:
-                return datetime.strptime(date_str, "%Y-%m-%d")
+                # Try to parse using fromisoformat, which handles ISO format (with or without time)
+                date = datetime.fromisoformat(date_str)
             except ValueError:
-                # If parsing fails, return None
-                return None
+                try:
+                    # If it fails, try to parse the standard date format "%Y-%m-%d"
+                    date = datetime.strptime(date_str, "%Y-%m-%d")
+                except ValueError:
+                    # Return None if all parsing attempts fail
+                    return None
+            # Standardize to the "Y-M-D" format
+            return date.strftime("%Y-%m-%d")
+
         
         # Process the historical jobs list
         for item in self.history_jobs:
@@ -176,11 +183,11 @@ class Merge_New_Job_List:
                 merged[company_name]['recent_update'] = new_date
 
         # Convert datetime objects back to string format or 'None'
-        for company in merged.values():
-            if company['recent_update'] is not None:
-                company['recent_update'] = company['recent_update'].strftime("%Y-%m-%d")
-            else:
-                company['recent_update'] = 'None'
+        # for company in merged.values():
+        #     if company['recent_update'] is not None:
+        #         company['recent_update'] = company['recent_update'].strftime("%Y-%m-%d")
+        #     else:
+        #         company['recent_update'] = 'None'
 
         new_data = list(merged.values())
         return new_data
