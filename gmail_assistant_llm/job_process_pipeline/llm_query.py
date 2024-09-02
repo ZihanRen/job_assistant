@@ -80,18 +80,13 @@ class LLM_Query:
             print('\n')
             input_data = json.dumps(job_email)
 
-            try:
-                json_response = self.extraction_llm.extract_information(input_data)
-                if json_response is not None:
-                    json_response = self.add_key(json_response,job_email['email_id'])
-                else:
-                    print("Failed query for email id: {}".format(job_email['email_id']))
-                    print('\n')
-                    continue
-
-            except Exception as e:
-                print("Error processing email id: {}".format(job_email['email_id']))
-                print(e)
+            
+            json_response = self.extraction_llm.extract_information(input_data)
+            if json_response is not None:
+                json_response = self.add_key(json_response,job_email['email_id'])
+            else:
+                print("Failed query for email id: {}".format(job_email['email_id']))
+                print('\n')
                 continue
             
             # update query state
@@ -113,8 +108,7 @@ class LLM_Query:
             query_company_state = {}
             for job in job_list:
                 query_company_state[job['name']] = {
-                    'search_state': False,
-                    'applied_state': False
+                    'search_state': False
                 }
             save_json(get_path(os.getenv('QUERY_COMPANY_STATE')),query_company_state)
         else:

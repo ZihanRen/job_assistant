@@ -200,11 +200,22 @@ class Flat_Self_Merge:
         self.job_data = job_data
         self.job_list_flat = []
         
-
         for individual_email in job_data:
             for company_info in individual_email['query_list']:
                 self.job_list_flat.append(company_info)
 
+    def parse_date(self, date_string):
+        """Parse date string to datetime object."""
+        if not date_string:
+            return datetime.min
+        try:
+            return datetime.fromisoformat(date_string)
+        except ValueError:
+            # If the date string is not in ISO format, you might need to adjust the parsing
+            # For example, if it's in "MM/DD/YYYY" format:
+            # return datetime.strptime(date_string, "%m/%d/%Y")
+            print(f"Warning: Could not parse date '{date_string}'. Using minimum date.")
+            return datetime.min
 
     def self_merge(self):
         merged = {}
@@ -218,20 +229,20 @@ class Flat_Self_Merge:
         for item in self.job_list_flat:
             company_name = item['name']
             position = item['position']
-            date = item['recent_update']
+            date = self.parse_date(item['recent_update'])
             
             existing_name = company_exists(company_name)
             
             if existing_name:
                 merged[existing_name]['positions'].append(position)
                 # Update the date if the current item's date is more recent
-                if date > merged[existing_name]['recent_update']:
-                    merged[existing_name]['recent_update'] = date
+                if date > self.parse_date(merged[existing_name]['recent_update']):
+                    merged[existing_name]['recent_update'] = date.isoformat()
             else:
                 merged[company_name] = {
                     'name': company_name, 
                     'positions': [position],
-                    'recent_update': date
+                    'recent_update': date.isoformat()
                 }
         
         return list(merged.values())

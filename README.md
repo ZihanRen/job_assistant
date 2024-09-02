@@ -56,7 +56,10 @@ Stage 2: A list of jobs and companies is further enriched through LLM-assisted G
 2. Run the pipeline:
    ```bash
    cd gmail_assistant_llm
+   Python gmail_activate.py
    python gmail_assistant_pipeline.py
+
+You need to activate your gmail API credentials before running the LLM pipeline
 
 ## Analysis Options
 

@@ -16,19 +16,23 @@ class General_Query:
             )
 
     def run_query(self):
-        self.email_data = self.gmail_prc.get_all_emails_all_labels()
-
+        
         if self.initialize:
             # query all emails and save to list
-            self.init_obj = Initialize_Emails_List(self.email_data)
+            email_data = self.gmail_prc.get_all_emails_all_labels()
+            self.init_obj = Initialize_Emails_List(email_data)
             self.init_obj.save_emails()
             self.init_obj.init_email_query_state()
         
         else:
             # selectively query emails and merge with existing list
-            self.email_data = self.gmail_prc.get_all_emails_all_labels()
-            self.merge_etl = Merge_New_Emails(self.email_data)
-            self.merge_etl.merge()
+            email_data = self.gmail_prc.get_all_emails_all_labels()
+        return email_data
+    
+    def merge(self,email_data):
+        self.merge_etl = Merge_New_Emails(email_data)
+        self.merge_etl.merge()
+
 
 if __name__ == '__main__':
 

@@ -23,6 +23,7 @@ general_query:
         # "unread": "UNREAD"        # }
 
 llm_query:
+  initialize: False
   allowed_domains:
     - '@linkedin'
     - '@otta'

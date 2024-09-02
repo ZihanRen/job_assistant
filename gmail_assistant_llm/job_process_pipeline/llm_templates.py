@@ -67,11 +67,13 @@ class Extraction_LLM:
 
         self.extraction_chain = prompt | self.extraction_llm
 
-    def parse_date(self, date_str: str) -> Optional[datetime]:
+    def parse_date(self, date_str: str) -> Optional[str]:
         try:
-            return datetime.strptime(date_str, '%Y-%m-%d')
+            return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
         except ValueError:
             return None
+
+
 
     def parse_llm_output(self, chain_result):
         try:
@@ -80,34 +82,25 @@ class Extraction_LLM:
             
             # Parse the arguments as JSON
             parsed_json = json.loads(arguments)
-            
-            # Then, try to parse it with Pydantic
-            parsed_data = Parselist.parse_obj(parsed_json)
-            
-            # Convert string dates to datetime objects
-            for company in parsed_data.query_list:
-                if isinstance(company.recent_update, str):
-                    company.recent_update = self.parse_date(company.recent_update)
+                        
+            # Convert string dates to standardized format or None
+            for company in parsed_json['query_list']:
+                if 'recent_update' not in company:
+                    raise KeyError("recent_update not found for a company in query_list")
+                if isinstance(company['recent_update'], str):
+                    company['recent_update'] = self.parse_date(company['recent_update'])
             return parsed_json
         
-        except KeyError as e:
-            print(f"KeyError: {e}. The expected structure in chain_result is missing.")
-            return None
-        except json.JSONDecodeError:
-            print("The content inside 'arguments' is not valid JSON")
-            return None
-        except ValidationError as e:
-            print(f"Pydantic validation error: {e}")
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error parsing LLM output: {e}")
             return None
 
     def extract_information(self, input_data):
-        chain_result = self.extraction_chain.invoke({"input": input_data})
-        parsed_result = self.parse_llm_output(chain_result)
-        
-        if parsed_result:
-            return parsed_result
-        else:
-            print("Failed to parse LLM output")
+        try:
+            chain_result = self.extraction_chain.invoke({"input": input_data})
+            return self.parse_llm_output(chain_result)
+        except Exception as e:
+            print(f"Error in extract_information: {e}")
             return None
 
         
@@ -202,3 +195,37 @@ class Get_Time_LLM:
         ])
 
         self.extraction_chain = prompt | self.extraction_llm
+    
+
+
+
+
+
+
+
+    # def parse_llm_output(self, chain_result):
+    #     try:
+    #         # Extract the arguments from the function call
+    #         arguments = chain_result.additional_kwargs['function_call']['arguments']
+            
+    #         # Parse the arguments as JSON
+    #         parsed_json = json.loads(arguments)
+            
+    #         # Then, try to parse it with Pydantic
+    #         parsed_data = Parselist.parse_obj(parsed_json)
+            
+    #         # Convert string dates to datetime objects
+    #         for company in parsed_data.query_list:
+    #             if isinstance(company.recent_update, str):
+    #                 company.recent_update = self.parse_date(company.recent_update)
+    #         return parsed_json
+        
+    #     except KeyError as e:
+    #         print(f"KeyError: {e}. The expected structure in chain_result is missing.")
+    #         return None
+    #     except json.JSONDecodeError:
+    #         print("The content inside 'arguments' is not valid JSON")
+    #         return None
+    #     except ValidationError as e:
+    #         print(f"Pydantic validation error: {e}")
+    #         return None
