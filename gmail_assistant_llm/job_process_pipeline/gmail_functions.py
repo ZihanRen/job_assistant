@@ -199,27 +199,39 @@ class Gmail_Functions:
             print(f'Unexpected error occurred while processing message {msg_id}: {error}')
             return None
 
-    def get_all_emails_per_label(self,label_names=None):
+
+    def get_all_emails_per_label(self, label_names=None):
         messages = self.list_messages_all(label_names=label_names)
         email_data = []
         if messages:
             total = len(messages)
             for i, msg in enumerate(messages, 1):
                 try:
-                    msg_id = msg['id']
+                    msg_id = msg.get('id', None)
+                    if msg_id is None:
+                        print(f"Message has no ID, skipping.")
+                        continue
+                    
+                    # Check if msg_id is in query_email_state and its general_query_status
                     if not self.initialize:
-                        if self.query_email_state[msg_id]['general_query_status'] == True:
-                            print(f"Email {msg_id} has already been processed. Skipping.")
-                            continue
+                        if msg_id in self.query_email_state:
+                            if self.query_email_state[msg_id].get('general_query_status', False):
+                                print(f"Email {msg_id} has already been processed. Skipping.")
+                                continue
+                        
                     message_details = self.get_message('me', msg_id)
                     if message_details:
                         email_data.append(message_details)
                     if i % 100 == 0:
                         print(f"Processed {i}/{total} emails")
                 except Exception as e:
-                    print(f"Error processing message {msg['id']}: {e}")
+                    msg_id = msg.get('id', 'Unknown ID')
+                    print(f"Error processing message {msg_id}: {e}")
+        else:
+            print("No messages found.")
         return email_data
     
+
     def get_all_emails_all_labels(self):
         all_emails = []
         for label in self.target_label_list:
