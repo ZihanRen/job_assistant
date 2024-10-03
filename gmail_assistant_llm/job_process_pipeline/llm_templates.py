@@ -56,11 +56,12 @@ class Extraction_LLM:
 
         prompt = ChatPromptTemplate.from_messages([
             ("system",
-                "Extract information from json. Your goal is to "
-                "get information about company name and position info. The position "
-                "information should include post date, location, apply link, "
-                "description (if available). If you can't find relevant information, "
-                "please return None"
+                "You are an AI assistant that extracts information about job postings from provided JSON data. "
+                "Your goal is to retrieve information about companies and their job postings. "
+                "Each job posting should include the company name, position name, post date, location, apply link, "
+                "and description (if available). The 'recent_update' field should be formatted as 'YYYY-MM-DD' (e.g., '2024-01-01'). "
+                "If any information is missing or cannot be found, fill it with 'None'. "
+                "Only extract information related to job postings. Do not include irrelevant data."
             ),
             ("human", "{input}")
         ])
@@ -68,10 +69,13 @@ class Extraction_LLM:
         self.extraction_chain = prompt | self.extraction_llm
 
     def parse_date(self, date_str: str) -> Optional[str]:
-        try:
-            return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
-        except ValueError:
-            return None
+        for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d-%b-%Y', '%B %d, %Y'):
+            try:
+                return datetime.strptime(date_str, fmt).strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+        return None
+
 
     def parse_llm_output(self, chain_result):
         try:
@@ -80,15 +84,39 @@ class Extraction_LLM:
             
             # Parse the arguments as JSON
             parsed_json = json.loads(arguments)
-                        
-            # Convert string dates to standardized format or None
+            
+            validated_companies = []
+            
             for company in parsed_json['query_list']:
-                if 'recent_update' not in company:
-                    raise KeyError("recent_update not found for a company in query_list")
-                if isinstance(company['recent_update'], str):
-                    company['recent_update'] = self.parse_date(company['recent_update'])
+                # Validate company name
+                company_name = company.get('name')
+                if not company_name:
+                    print("Company name missing, skipping this entry.")
+                    continue  # Skip this company
+                
+                # Validate that this is related to a job posting
+                position = company.get('position')
+                if not position or not position.get('name') or not position.get('apply_link'):
+                    print("Incomplete position information, skipping this entry.")
+                    continue  # Skip this company
+
+                # Handle 'recent_update'
+                recent_update = company.get('recent_update')
+                if recent_update:
+                    parsed_date = self.parse_date(recent_update)
+                    if parsed_date:
+                        company['recent_update'] = parsed_date
+                    else:
+                        company['recent_update'] = datetime.now().strftime('%Y-%m-%d')
+                else:
+                    company['recent_update'] = datetime.now().strftime('%Y-%m-%d')
+                
+                validated_companies.append(company)
+            
+            # Replace the original company list with the validated one
+            parsed_json['query_list'] = validated_companies
+
             return parsed_json
-        
         except (KeyError, json.JSONDecodeError) as e:
             print(f"Error parsing LLM output: {e}")
             return None
@@ -98,7 +126,7 @@ class Extraction_LLM:
             chain_result = self.extraction_chain.invoke({"input": input_data})
             return self.parse_llm_output(chain_result)
         except Exception as e:
-            print(f"Error in extract_information: {e}")
+            print(f"Error in extract_information for input {input_data}: {e}")
             return None
 
         
@@ -200,7 +228,6 @@ class Get_Time_LLM:
 
 
 
-
     # def parse_llm_output(self, chain_result):
     #     try:
     #         # Extract the arguments from the function call
@@ -208,22 +235,18 @@ class Get_Time_LLM:
             
     #         # Parse the arguments as JSON
     #         parsed_json = json.loads(arguments)
+                        
+    #         # Convert string dates to standardized format or None
+    #         for company in parsed_json['query_list']:
+    #             recent_update = company.get('recent_update', None)
+
+    #         if recent_update:
+    #             company['recent_update'] = self.parse_date(recent_update)
+    #         else:
+    #             company['recent_update'] = None
             
-    #         # Then, try to parse it with Pydantic
-    #         parsed_data = Parselist.parse_obj(parsed_json)
-            
-    #         # Convert string dates to datetime objects
-    #         for company in parsed_data.query_list:
-    #             if isinstance(company.recent_update, str):
-    #                 company.recent_update = self.parse_date(company.recent_update)
     #         return parsed_json
         
-    #     except KeyError as e:
-    #         print(f"KeyError: {e}. The expected structure in chain_result is missing.")
-    #         return None
-    #     except json.JSONDecodeError:
-    #         print("The content inside 'arguments' is not valid JSON")
-    #         return None
-    #     except ValidationError as e:
-    #         print(f"Pydantic validation error: {e}")
+    #     except (KeyError, json.JSONDecodeError) as e:
+    #         print(f"Error parsing LLM output: {e}")
     #         return None

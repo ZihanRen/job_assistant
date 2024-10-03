@@ -84,15 +84,14 @@ class LLM_Query:
             json_response = self.extraction_llm.extract_information(input_data)
             if json_response is not None:
                 json_response = self.add_key(json_response,job_email['email_id'])
+                # update query state
+                self.update_query_state(job_email)
+                job_process_list.append(json_response)
             else:
                 print("Failed query for email id: {}".format(job_email['email_id']))
                 print('\n')
                 continue
-            
-            # update query state
-            self.update_query_state(job_email)
-            job_process_list.append(json_response)
-
+        
         job_flat_list = Flat_Self_Merge(job_process_list).self_merge()
         # update job list
         save_json(get_path(os.getenv('JOB_LIST')),job_flat_list)

@@ -8,6 +8,7 @@ from googleapiclient.errors import HttpError
 from gmail_assistant_llm.util import *
 import os
 from google_auth_oauthlib.flow import Flow
+import quopri
 
 
 class Gmail_Authenticate:
@@ -118,58 +119,80 @@ class Gmail_Functions:
             print(f'An error occurred: {error}')
             return None
     
-    def get_mime_type_part(self,parts,mime_type):
+    def get_mime_type_parts(self, parts, mime_types):
+        collected_parts = []
         for part in parts:
-            if part['mimeType'] == mime_type:
-                return part
+            if part['mimeType'] in mime_types:
+                collected_parts.append(part)
             if 'parts' in part:
-                nested_part = self.get_mime_type_part(part['parts'], mime_type)
-                if nested_part:
-                    return nested_part
-        return None
+                collected_parts.extend(self.get_mime_type_parts(part['parts'], mime_types))
+        return collected_parts
 
-    def decode_body(self,body_data):
-        return base64.urlsafe_b64decode(body_data).decode('utf-8')
+
+    def decode_part_body(self, part, msg_id):
+        body = ''
+        if 'body' in part:
+            if 'data' in part['body']:
+                body = self.decode_body(part['body']['data'])
+            elif 'attachmentId' in part['body']:
+                attachment = self.service.users().messages().attachments().get(
+                    userId='me', messageId=msg_id, id=part['body']['attachmentId']
+                ).execute()
+                body = self.decode_body(attachment['data'])
+        return body
+
+    def decode_body(self, body_data, encoding='base64'):
+        if encoding == 'base64':
+            return base64.urlsafe_b64decode(body_data).decode('utf-8')
+        elif encoding == 'quoted-printable':
+            return quopri.decodestring(body_data).decode('utf-8')
+        else:
+            return body_data
+
+    def get_header(self, headers, name):
+            return next((header['value'] for header in headers if header['name'].lower() == name.lower()), '')
 
     def get_message(self, user_id, msg_id):
-
         try:
             message = self.service.users().messages().get(userId=user_id, id=msg_id, format='full').execute()
             headers = message['payload']['headers']
             
-            # Extracting necessary fields from headers
-            subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), '')
-            sender = next((header['value'] for header in headers if header['name'].lower() == 'from'), '')
-            date = next((header['value'] for header in headers if header['name'].lower() == 'date'), '')
-            recipients = next((header['value'] for header in headers if header['name'].lower() == 'to'), '').split(',')
-            cc = next((header['value'] for header in headers if header['name'].lower() == 'cc'), '').split(',')
-            bcc = next((header['value'] for header in headers if header['name'].lower() == 'bcc'), '').split(',')
+            # Extract headers
+            subject = self.get_header(headers, 'Subject')
+            sender = self.get_header(headers, 'From')
+            date = self.get_header(headers, 'Date')
+            recipients = self.get_header(headers, 'To').split(',')
+            cc = self.get_header(headers, 'Cc').split(',')
+            bcc = self.get_header(headers, 'Bcc').split(',')
 
-            # Extract the main email body
+            # Extract body
             parts = message['payload'].get('parts', [])
-            body = ""
-            if parts:
-                text_part = self.get_mime_type_part(parts, 'text/plain')
-                html_part = self.get_mime_type_part(parts, 'text/html')
-                
-                if text_part and 'data' in text_part['body']:
-                    body = self.decode_body(text_part['body']['data'])
-                elif html_part and 'data' in html_part['body']:
-                    body = self.decode_body(html_part['body']['data'])
-            else:
-                if 'data' in message['payload']['body']:
-                    body = self.decode_body(message['payload']['body']['data'])
+            if not parts and 'body' in message['payload']:
+                parts = [message['payload']]
+            mime_types = ['text/plain', 'text/html']
+            content_parts = self.get_mime_type_parts(parts, mime_types)
+            body = ''
+            for part in content_parts:
+                part_body = self.decode_part_body(part, msg_id)
+                body += part_body + '\n'
 
             # Extract attachments
             attachments = []
             for part in parts:
                 if part.get('filename'):
-                    attachments.append({
+                    attachment = {
                         'filename': part['filename'],
-                        'size': int(part['body'].get('size', 0)),
-                        'mime_type': part['mimeType']
-                    })
+                        'mime_type': part['mimeType'],
+                        'size': part['body'].get('size')
+                    }
+                    if 'attachmentId' in part['body']:
+                        attachment_data = self.service.users().messages().attachments().get(
+                            userId=user_id, messageId=msg_id, id=part['body']['attachmentId']
+                        ).execute()
+                        attachment['data'] = attachment_data['data']
+                    attachments.append(attachment)
 
+            # Build message dictionary
             msg_dict = {
                 "email_id": message['id'],
                 "metadata": {
@@ -181,7 +204,7 @@ class Gmail_Functions:
                     "bcc": bcc
                 },
                 "content": {
-                    "body": body,
+                    "body": body.strip(),
                     "attachments": attachments
                 },
                 "custom_fields": {
@@ -191,7 +214,7 @@ class Gmail_Functions:
                 }
             }
             return msg_dict
-        
+
         except HttpError as error:
             print(f'HttpError occurred while fetching message {msg_id}: {error}')
             return None
@@ -199,26 +222,28 @@ class Gmail_Functions:
             print(f'Unexpected error occurred while processing message {msg_id}: {error}')
             return None
 
-
     def get_all_emails_per_label(self, label_names=None):
         messages = self.list_messages_all(label_names=label_names)
         email_data = []
         if messages:
             total = len(messages)
             for i, msg in enumerate(messages, 1):
+                msg_id = msg.get('id', None)
+
+                if not self.initialize:
+                    if msg_id in self.query_email_state:
+                        if self.query_email_state[msg_id].get('general_query_status', False):
+                            print(f"Email {msg_id} has already been processed. Skipping.")
+                            continue
+                
                 try:
-                    msg_id = msg.get('id', None)
                     if msg_id is None:
                         print(f"Message has no ID, skipping.")
                         continue
                     
                     # Check if msg_id is in query_email_state and its general_query_status
-                    if not self.initialize:
-                        if msg_id in self.query_email_state:
-                            if self.query_email_state[msg_id].get('general_query_status', False):
-                                print(f"Email {msg_id} has already been processed. Skipping.")
-                                continue
-                        
+                   
+                
                     message_details = self.get_message('me', msg_id)
                     if message_details:
                         email_data.append(message_details)
